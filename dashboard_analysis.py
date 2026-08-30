@@ -39,6 +39,8 @@ def summarize_window(df, label, years):
             admits=("admits", "sum"),
             enrollees=("enrollees", "sum"),
             applicant_gpa=("applicant_gpa", "mean"),
+            admit_gpa=("admit_gpa", "mean"),
+            enrollee_gpa=("enrollee_gpa", "mean"),
             frpm_pct=("frpm_pct", "mean"),
             ag_completion_rate=("ag_completion_rate", "mean"),
         )
@@ -48,6 +50,8 @@ def summarize_window(df, label, years):
     by_school["admit_rate"] = by_school.admits / by_school.applicants
     by_school["yield_rate"] = by_school.enrollees / by_school.admits
     by_school["enrollment_rate"] = by_school.enrollees / by_school.applicants
+    by_school["enrollee_applicant_gpa_gap"] = by_school.enrollee_gpa - by_school.applicant_gpa
+    by_school["enrollee_admit_gpa_gap"] = by_school.enrollee_gpa - by_school.admit_gpa
     by_school["window"] = label
     return by_school
 
@@ -71,6 +75,15 @@ def compare_groups(school_change, labels):
                 "applicant_change": g.applicants_post.sum() - g.applicants_pre.sum(),
                 "yield_rate_change": weighted_mean(g, "yield_rate_change", "admits_post"),
                 "enrollment_rate_change": weighted_mean(g, "enrollment_rate_change", "applicants_post"),
+                "applicant_gpa_change": weighted_mean(g, "applicant_gpa_change", "applicants_post"),
+                "admit_gpa_change": weighted_mean(g, "admit_gpa_change", "admits_post"),
+                "enrollee_gpa_change": weighted_mean(g, "enrollee_gpa_change", "enrollees_post"),
+                "enrollee_applicant_gpa_gap_change": weighted_mean(
+                    g, "enrollee_applicant_gpa_gap_change", "enrollees_post"
+                ),
+                "enrollee_admit_gpa_gap_change": weighted_mean(
+                    g, "enrollee_admit_gpa_gap_change", "enrollees_post"
+                ),
             }
         )
     return pd.DataFrame(rows)
@@ -96,6 +109,10 @@ def main():
                 "gpa_admit_slope": weighted_slope(g.applicant_gpa, g.admit_rate, g.applicants),
                 "gpa_admit_corr": weighted_corr(g.applicant_gpa, g.admit_rate, g.applicants),
                 "avg_applicant_gpa": np.average(g.applicant_gpa, weights=g.applicants),
+                "avg_admit_gpa": weighted_mean(g, "admit_gpa", "admits"),
+                "avg_enrollee_gpa": weighted_mean(g, "enrollee_gpa", "enrollees"),
+                "enrollee_applicant_gpa_gap": weighted_mean(g, "enrollee_applicant_gpa_gap", "enrollees"),
+                "enrollee_admit_gpa_gap": weighted_mean(g, "enrollee_admit_gpa_gap", "enrollees"),
             }
         )
 
@@ -108,6 +125,14 @@ def main():
     )
     school_change["admit_rate_change"] = school_change.admit_rate_post - school_change.admit_rate_pre
     school_change["applicant_gpa_change"] = school_change.applicant_gpa_post - school_change.applicant_gpa_pre
+    school_change["admit_gpa_change"] = school_change.admit_gpa_post - school_change.admit_gpa_pre
+    school_change["enrollee_gpa_change"] = school_change.enrollee_gpa_post - school_change.enrollee_gpa_pre
+    school_change["enrollee_applicant_gpa_gap_change"] = (
+        school_change.enrollee_applicant_gpa_gap_post - school_change.enrollee_applicant_gpa_gap_pre
+    )
+    school_change["enrollee_admit_gpa_gap_change"] = (
+        school_change.enrollee_admit_gpa_gap_post - school_change.enrollee_admit_gpa_gap_pre
+    )
     school_change["yield_rate_change"] = school_change.yield_rate_post - school_change.yield_rate_pre
     school_change["enrollment_rate_change"] = school_change.enrollment_rate_post - school_change.enrollment_rate_pre
     school_change["post_minus_pre_score"] = (
