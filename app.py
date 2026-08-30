@@ -9,24 +9,31 @@ PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 
 
-st.set_page_config(page_title="UC Admissions Access Shift", layout="wide")
+st.set_page_config(page_title="BRIC by BRIC", layout="wide")
 
 st.markdown(
     """
     <style>
     .stApp {
-        background: linear-gradient(135deg, #f8faf6 0%, #eef4e8 45%, #f7f3df 100%);
+        background:
+            linear-gradient(90deg, rgba(124, 58, 45, 0.05) 1px, transparent 1px),
+            linear-gradient(rgba(124, 58, 45, 0.05) 1px, transparent 1px),
+            linear-gradient(135deg, #fbf7ef 0%, #eef5f1 48%, #f7eadf 100%);
+        background-size: 32px 32px, 32px 32px, auto;
     }
     [data-testid="stMetric"] {
         background: #ffffffcc;
-        border: 1px solid #d7decf;
-        border-left: 6px solid #1f6f50;
+        border: 1px solid #decfc2;
+        border-left: 6px solid #a9472b;
         padding: 14px 16px;
         border-radius: 8px;
-        box-shadow: 0 1px 6px rgba(20, 35, 25, 0.08);
+        box-shadow: 0 1px 8px rgba(73, 44, 32, 0.10);
     }
     h1, h2, h3 {
-        color: #163b2c;
+        color: #4b2b24;
+    }
+    .stCaptionContainer {
+        color: #355348;
     }
     </style>
     """,
@@ -119,8 +126,8 @@ changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrol
 changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
 changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
 
-st.title("UC Admissions Access Shift")
-st.caption("How did Bay Area public high school admit patterns change after UC became test-blind?")
+st.title("BRIC by BRIC: Rebuilding UC Access")
+st.caption("When UC removed the test-score brick, did GPA become load-bearing, or did access shift?")
 
 left, right = st.columns([1, 3])
 with left:
@@ -141,14 +148,14 @@ p_value = slope_change_p_value(pre, post)
 
 with right:
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Before rule change", f"{pre_rate:.1%}")
-    m2.metric("After rule change", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
-    m3.metric("GPA advantage index", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
+    m1.metric("Old foundation", f"{pre_rate:.1%}")
+    m2.metric("New foundation", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
+    m3.metric("Load-bearing GPA", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
     m4.metric("Slope p-value", f"{p_value:.3f}")
     m5.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
 
     st.markdown(
-        "The post-test-blind period shows a clear access shift: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
+        "After UC removed the test-score brick, GPA became less load-bearing: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
     )
 
 chart_data = pd.concat([pre, post], ignore_index=True)
@@ -174,7 +181,7 @@ fig = px.scatter(
 fig.update_yaxes(tickformat=".0%")
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("School snapshot")
+st.subheader("Brick-level school snapshot")
 card = changes[changes.high_school == selected_school].iloc[0]
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Post-policy lift", f"{card.admit_rate_change:+.1%}")
@@ -186,7 +193,7 @@ st.write(
     f"{card.admit_rate_pre:.1%} before test-blind to {card.admit_rate_post:.1%} after test-blind."
 )
 
-st.subheader("Biggest risers")
+st.subheader("Biggest access openings")
 show = filtered.sort_values("post_minus_pre_score", ascending=False)[
     [
         "high_school",
@@ -215,7 +222,7 @@ st.dataframe(
     },
 )
 
-st.subheader("Context groups")
+st.subheader("Pressure points by school context")
 group_choice = st.radio("School context", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
 metric_labels = {
     "Admit rate change": "admit_rate_change",

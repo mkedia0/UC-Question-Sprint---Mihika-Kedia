@@ -1,6 +1,6 @@
-# UC Admissions Data Challenge - Mihika Kedia
+# BRIC by BRIC: Rebuilding UC Access
 
-This repo contains the Question Sprint notebook and a Streamlit dashboard for the UC Admissions Data Challenge.
+This repo contains the Question Sprint notebook and a Streamlit dashboard for the UC Admissions Data Challenge. The dashboard theme is "BRIC by BRIC": when UC removed the test-score brick, did GPA become load-bearing, or did access shift across Bay Area public high schools?
 
 Run `question_sprint_answers.ipynb` from the repo root. Each code cell computes one form answer from the provided CSV files in `data/`.
 
