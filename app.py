@@ -111,6 +111,17 @@ def context_slope_p_value(df, predictor, outcome, weight):
     return model.params[predictor], model.pvalues[predictor]
 
 
+def bucket_labels(values, names, is_percent=False):
+    _, bins = pd.qcut(values.dropna(), 3, retbins=True, duplicates="drop")
+    labels = []
+    for name, low, high in zip(names, bins[:-1], bins[1:]):
+        if is_percent:
+            labels.append(f"{name} ({low:.0%}-{high:.0%})")
+        else:
+            labels.append(f"{name} ({low:.2f}-{high:.2f})")
+    return labels
+
+
 df = load_data()
 pre = window_summary(df, "Pre-test-blind", PRE_YEARS)
 post = window_summary(df, "Post-test-blind", POST_YEARS)
@@ -239,13 +250,24 @@ metric = metric_labels[metric_label]
 
 if group_choice == "Applicant GPA":
     source_col = "applicant_gpa_pre"
-    group_labels = ["Lower GPA schools", "Middle GPA schools", "Higher GPA schools"]
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower GPA schools", "Middle GPA schools", "Higher GPA schools"],
+    )
 elif group_choice == "FRPM":
     source_col = "frpm_pct_pre"
-    group_labels = ["Lower poverty schools", "Middle poverty schools", "Higher poverty schools"]
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower poverty schools", "Middle poverty schools", "Higher poverty schools"],
+        is_percent=True,
+    )
 else:
     source_col = "ag_completion_rate_pre"
-    group_labels = ["Lower a-g access", "Middle a-g access", "Higher a-g access"]
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower a-g access", "Middle a-g access", "Higher a-g access"],
+        is_percent=True,
+    )
 
 grouped = filtered.copy()
 grouped["group"] = pd.qcut(grouped[source_col], 3, labels=group_labels)
