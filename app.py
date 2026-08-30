@@ -192,7 +192,13 @@ st.dataframe(
 
 st.subheader("Context groups")
 group_choice = st.radio("Scouting split", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
-metric = st.selectbox("Compare stat", ["admit_rate_change", "yield_rate_change", "enrollment_rate_change", "enrollee_gpa_change"])
+metric_labels = {
+    "Admit rate change": "admit_rate_change",
+    "Yield change": "yield_rate_change",
+    "Enrollee GPA change": "enrollee_gpa_change",
+}
+metric_label = st.selectbox("Compare stat", list(metric_labels))
+metric = metric_labels[metric_label]
 
 if group_choice == "Applicant GPA":
     source_col = "applicant_gpa_pre"

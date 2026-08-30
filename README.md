@@ -14,7 +14,7 @@ streamlit run app.py
 
 How did UC's test-blind admissions shift affect applicants' chances of admission from Bay Area public high schools, and which kinds of schools saw the biggest change?
 
-## AP Stats Style Setup
+## Study Design
 
 - Population of interest: Bay Area California public high schools represented in the provided UC admissions data.
 - Observational units: one high school summarized across a time window.
@@ -39,7 +39,7 @@ y = Universitywide UC admit rate from that high school
 
 If the post-test-blind regression slope is smaller than the pre-test-blind slope, that is evidence that admit rate became less strongly associated with the GPA profile of a school's applicants.
 
-The dashboard also compares conditional group means across thirds of schools by applicant GPA, FRPM share, and a-g completion rate. This is AP Stats language for checking whether the pre/post change looks different across subgroups.
+The dashboard also compares conditional group means across thirds of schools by applicant GPA, FRPM share, and a-g completion rate. This checks whether the pre/post change looks different across subgroups instead of only reporting one systemwide average.
 
 Preliminary result: the post-test-blind period had a higher overall admit rate, and the relationship between school applicant GPA and admit rate became much weaker. Higher-FRPM schools saw the largest admit-rate increase, but their yield fell, suggesting admission chances improved more than actual enrollment. The GPA gap metrics compare `enrollee_gpa` to `applicant_gpa` and `admit_gpa` to test whether the enrolled class shifted along with admit chances.
 
