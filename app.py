@@ -9,7 +9,7 @@ PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 
 
-st.set_page_config(page_title="BRIC by BRIC", layout="wide")
+st.set_page_config(page_title="Brick by Brick", layout="wide")
 
 st.markdown(
     """
@@ -126,7 +126,7 @@ changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrol
 changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
 changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
 
-st.title("BRIC by BRIC: Rebuilding UC Access")
+st.title("Brick by Brick: Rebuilding UC Access")
 st.caption("When UC removed the test-score brick, did GPA become load-bearing, or did access shift?")
 
 left, right = st.columns([1, 3])
