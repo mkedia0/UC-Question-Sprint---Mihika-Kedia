@@ -47,8 +47,33 @@ def summarize_window(df, label, years):
     by_school = by_school[(by_school.applicants > 0) & by_school.applicant_gpa.notna()]
     by_school["admit_rate"] = by_school.admits / by_school.applicants
     by_school["yield_rate"] = by_school.enrollees / by_school.admits
+    by_school["enrollment_rate"] = by_school.enrollees / by_school.applicants
     by_school["window"] = label
     return by_school
+
+
+def weighted_mean(df, col, weight="applicants"):
+    usable = df[df[col].notna() & df[weight].notna() & (df[weight] > 0)]
+    return np.average(usable[col], weights=usable[weight])
+
+
+def compare_groups(school_change, labels):
+    rows = []
+    for label, group_index in labels.items():
+        g = school_change.loc[group_index]
+        rows.append(
+            {
+                "group": label,
+                "schools": len(g),
+                "pre_admit_rate": weighted_mean(g, "admit_rate_pre", "applicants_pre"),
+                "post_admit_rate": weighted_mean(g, "admit_rate_post", "applicants_post"),
+                "admit_rate_change": weighted_mean(g, "admit_rate_change", "applicants_post"),
+                "applicant_change": g.applicants_post.sum() - g.applicants_pre.sum(),
+                "yield_rate_change": weighted_mean(g, "yield_rate_change", "admits_post"),
+                "enrollment_rate_change": weighted_mean(g, "enrollment_rate_change", "applicants_post"),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def main():
@@ -84,30 +109,70 @@ def main():
     school_change["admit_rate_change"] = school_change.admit_rate_post - school_change.admit_rate_pre
     school_change["applicant_gpa_change"] = school_change.applicant_gpa_post - school_change.applicant_gpa_pre
     school_change["yield_rate_change"] = school_change.yield_rate_post - school_change.yield_rate_pre
+    school_change["enrollment_rate_change"] = school_change.enrollment_rate_post - school_change.enrollment_rate_pre
     school_change["post_minus_pre_score"] = (
         school_change.admit_rate_change * np.sqrt(school_change.applicants_post)
     )
 
     low_gpa = school_change[school_change.applicant_gpa_pre <= school_change.applicant_gpa_pre.quantile(0.33)]
+    mid_gpa = school_change[
+        school_change.applicant_gpa_pre.between(
+            school_change.applicant_gpa_pre.quantile(0.33),
+            school_change.applicant_gpa_pre.quantile(0.67),
+            inclusive="neither",
+        )
+    ]
     high_gpa = school_change[school_change.applicant_gpa_pre >= school_change.applicant_gpa_pre.quantile(0.67)]
 
-    group_summary = pd.DataFrame(
-        [
-            {
-                "group": "Lower-GPA applicant pools",
-                "schools": len(low_gpa),
-                "avg_admit_rate_change": np.average(low_gpa.admit_rate_change, weights=low_gpa.applicants_post),
-            },
-            {
-                "group": "Higher-GPA applicant pools",
-                "schools": len(high_gpa),
-                "avg_admit_rate_change": np.average(high_gpa.admit_rate_change, weights=high_gpa.applicants_post),
-            },
-        ]
+    low_frpm = school_change[school_change.frpm_pct_pre <= school_change.frpm_pct_pre.quantile(0.33)]
+    mid_frpm = school_change[
+        school_change.frpm_pct_pre.between(
+            school_change.frpm_pct_pre.quantile(0.33),
+            school_change.frpm_pct_pre.quantile(0.67),
+            inclusive="neither",
+        )
+    ]
+    high_frpm = school_change[school_change.frpm_pct_pre >= school_change.frpm_pct_pre.quantile(0.67)]
+
+    low_ag = school_change[school_change.ag_completion_rate_pre <= school_change.ag_completion_rate_pre.quantile(0.33)]
+    mid_ag = school_change[
+        school_change.ag_completion_rate_pre.between(
+            school_change.ag_completion_rate_pre.quantile(0.33),
+            school_change.ag_completion_rate_pre.quantile(0.67),
+            inclusive="neither",
+        )
+    ]
+    high_ag = school_change[school_change.ag_completion_rate_pre >= school_change.ag_completion_rate_pre.quantile(0.67)]
+
+    gpa_summary = compare_groups(
+        school_change,
+        {
+            "Lower applicant GPA": low_gpa.index,
+            "Middle applicant GPA": mid_gpa.index,
+            "Higher applicant GPA": high_gpa.index,
+        },
+    )
+    frpm_summary = compare_groups(
+        school_change,
+        {
+            "Lower FRPM": low_frpm.index,
+            "Middle FRPM": mid_frpm.index,
+            "Higher FRPM": high_frpm.index,
+        },
+    )
+    ag_summary = compare_groups(
+        school_change,
+        {
+            "Lower a-g completion": low_ag.index,
+            "Middle a-g completion": mid_ag.index,
+            "Higher a-g completion": high_ag.index,
+        },
     )
 
     summary.to_csv("dashboard_summary.csv", index=False)
-    group_summary.to_csv("dashboard_gpa_group_summary.csv", index=False)
+    gpa_summary.to_csv("dashboard_gpa_group_summary.csv", index=False)
+    frpm_summary.to_csv("dashboard_frpm_group_summary.csv", index=False)
+    ag_summary.to_csv("dashboard_ag_group_summary.csv", index=False)
     school_change.sort_values("post_minus_pre_score", ascending=False).to_csv(
         "dashboard_school_changes.csv", index=False
     )
@@ -118,7 +183,14 @@ def main():
     print()
     print(summary.round(4).to_string(index=False))
     print()
-    print(group_summary.round(4).to_string(index=False))
+    print("By applicant GPA group:")
+    print(gpa_summary.round(4).to_string(index=False))
+    print()
+    print("By FRPM group:")
+    print(frpm_summary.round(4).to_string(index=False))
+    print()
+    print("By a-g completion group:")
+    print(ag_summary.round(4).to_string(index=False))
     print()
     print("Top post-test-blind admit-rate gainers:")
     cols = ["high_school", "city", "county", "admit_rate_pre", "admit_rate_post", "admit_rate_change"]
