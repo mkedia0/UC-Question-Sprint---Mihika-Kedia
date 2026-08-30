@@ -1,0 +1,2 @@
+test,interaction_coefficient,p_value,alpha,significant_at_0_05
+Weighted regression interaction: applicant_gpa x post_test_blind,-0.16445115375910818,0.026962368197377858,0.05,True

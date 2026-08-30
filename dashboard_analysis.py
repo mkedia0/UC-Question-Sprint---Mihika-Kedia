@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from pathlib import Path
 
 
@@ -63,6 +64,62 @@ def weighted_mean(df, col, weight="applicants"):
     return np.average(usable[col], weights=usable[weight])
 
 
+def slope_change_test(pre, post):
+    pre = pre.copy()
+    post = post.copy()
+    pre["post_period"] = 0
+    post["post_period"] = 1
+    combined = pd.concat([pre, post], ignore_index=True)
+    combined = combined.dropna(subset=["applicant_gpa", "admit_rate", "applicants"])
+    combined["gpa_post_interaction"] = combined.applicant_gpa * combined.post_period
+
+    x = sm.add_constant(combined[["applicant_gpa", "post_period", "gpa_post_interaction"]])
+    model = sm.WLS(combined.admit_rate, x, weights=combined.applicants).fit()
+    return pd.DataFrame(
+        [
+            {
+                "test": "Weighted regression interaction: applicant_gpa x post_test_blind",
+                "interaction_coefficient": model.params["gpa_post_interaction"],
+                "p_value": model.pvalues["gpa_post_interaction"],
+                "alpha": 0.05,
+                "significant_at_0_05": model.pvalues["gpa_post_interaction"] < 0.05,
+            }
+        ]
+    )
+
+
+def context_slope_tests(school_change):
+    predictors = {
+        "applicant_gpa_pre": "Pre-period applicant GPA",
+        "frpm_pct_pre": "Pre-period FRPM share",
+        "ag_completion_rate_pre": "Pre-period a-g completion rate",
+    }
+    outcomes = {
+        "admit_rate_change": ("Admit rate change", "applicants_post"),
+        "yield_rate_change": ("Yield change", "admits_post"),
+        "enrollee_gpa_change": ("Enrollee GPA change", "enrollees_post"),
+    }
+
+    rows = []
+    for predictor, predictor_label in predictors.items():
+        for outcome, (outcome_label, weight_col) in outcomes.items():
+            usable = school_change.dropna(subset=[predictor, outcome, weight_col])
+            usable = usable[usable[weight_col] > 0]
+            x = sm.add_constant(usable[[predictor]])
+            model = sm.WLS(usable[outcome], x, weights=usable[weight_col]).fit()
+            rows.append(
+                {
+                    "predictor": predictor_label,
+                    "outcome": outcome_label,
+                    "slope": model.params[predictor],
+                    "p_value": model.pvalues[predictor],
+                    "alpha": 0.05,
+                    "significant_at_0_05": model.pvalues[predictor] < 0.05,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def compare_groups(school_change, labels):
     rows = []
     for label, group_index in labels.items():
@@ -99,6 +156,7 @@ def main():
     pre = summarize_window(df, "Pre-test-blind (2017-2019)", PRE_YEARS)
     post = summarize_window(df, "Post-test-blind (2022-2025)", POST_YEARS)
     combined = pd.concat([pre, post], ignore_index=True)
+    significance = slope_change_test(pre, post)
 
     summary_rows = []
     for label, g in combined.groupby("window"):
@@ -141,6 +199,7 @@ def main():
     school_change["post_minus_pre_score"] = (
         school_change.admit_rate_change * np.sqrt(school_change.applicants_post)
     )
+    context_tests = context_slope_tests(school_change)
 
     low_gpa = school_change[school_change.applicant_gpa_pre <= school_change.applicant_gpa_pre.quantile(0.33)]
     mid_gpa = school_change[
@@ -198,6 +257,8 @@ def main():
     )
 
     summary.to_csv(OUTPUTS / "test_blind_overall_summary.csv", index=False)
+    significance.to_csv(OUTPUTS / "gpa_slope_significance_test.csv", index=False)
+    context_tests.to_csv(OUTPUTS / "context_slope_significance_tests.csv", index=False)
     gpa_summary.to_csv(OUTPUTS / "applicant_gpa_group_changes.csv", index=False)
     frpm_summary.to_csv(OUTPUTS / "frpm_group_changes.csv", index=False)
     ag_summary.to_csv(OUTPUTS / "ag_completion_group_changes.csv", index=False)
@@ -210,6 +271,12 @@ def main():
     print("HA: The GPA-admit-rate relationship weakened after UC became test-blind.")
     print()
     print(summary.round(4).to_string(index=False))
+    print()
+    print("Regression significance test:")
+    print(significance.round(4).to_string(index=False))
+    print()
+    print("Context slope significance tests:")
+    print(context_tests.round(4).to_string(index=False))
     print()
     print("By applicant GPA group:")
     print(gpa_summary.round(4).to_string(index=False))

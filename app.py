@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import statsmodels.api as sm
 import streamlit as st
 
 
@@ -81,6 +82,28 @@ def weighted_mean(df, col, weight):
     return np.average(usable[col], weights=usable[weight])
 
 
+def slope_change_p_value(pre, post):
+    pre = pre.copy()
+    post = post.copy()
+    pre["post_period"] = 0
+    post["post_period"] = 1
+    combined = pd.concat([pre, post], ignore_index=True)
+    combined = combined.dropna(subset=["applicant_gpa", "admit_rate", "applicants"])
+    combined["gpa_post_interaction"] = combined.applicant_gpa * combined.post_period
+
+    x = sm.add_constant(combined[["applicant_gpa", "post_period", "gpa_post_interaction"]])
+    model = sm.WLS(combined.admit_rate, x, weights=combined.applicants).fit()
+    return model.pvalues["gpa_post_interaction"]
+
+
+def context_slope_p_value(df, predictor, outcome, weight):
+    usable = df.dropna(subset=[predictor, outcome, weight])
+    usable = usable[usable[weight] > 0]
+    x = sm.add_constant(usable[[predictor]])
+    model = sm.WLS(usable[outcome], x, weights=usable[weight]).fit()
+    return model.params[predictor], model.pvalues[predictor]
+
+
 df = load_data()
 pre = window_summary(df, "Pre-test-blind", PRE_YEARS)
 post = window_summary(df, "Post-test-blind", POST_YEARS)
@@ -114,16 +137,18 @@ post_rate = post.admits.sum() / post.applicants.sum()
 pre_slope = weighted_slope(pre.applicant_gpa, pre.admit_rate, pre.applicants)
 post_slope = weighted_slope(post.applicant_gpa, post.admit_rate, post.applicants)
 enrollee_gpa_change = weighted_mean(changes, "enrollee_gpa_change", "enrollees_post")
+p_value = slope_change_p_value(pre, post)
 
 with right:
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Before rule change", f"{pre_rate:.1%}")
     m2.metric("After rule change", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
     m3.metric("GPA advantage index", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
-    m4.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
+    m4.metric("Slope p-value", f"{p_value:.3f}")
+    m5.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
 
     st.markdown(
-        "The post-test-blind period looks like a rule change with real scoreboard movement: admit rates rose, the GPA advantage got weaker, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
+        "The post-test-blind period looks like a rule change with real scoreboard movement: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
     )
 
 chart_data = pd.concat([pre, post], ignore_index=True)
@@ -197,6 +222,11 @@ metric_labels = {
     "Yield change": "yield_rate_change",
     "Enrollee GPA change": "enrollee_gpa_change",
 }
+metric_weights = {
+    "admit_rate_change": "applicants_post",
+    "yield_rate_change": "admits_post",
+    "enrollee_gpa_change": "enrollees_post",
+}
 metric_label = st.selectbox("Compare stat", list(metric_labels))
 metric = metric_labels[metric_label]
 
@@ -233,3 +263,9 @@ else:
 line.update_traces(line=dict(width=4), marker=dict(size=11))
 line.update_layout(xaxis_title=None)
 st.plotly_chart(line, use_container_width=True)
+
+context_slope, context_p_value = context_slope_p_value(filtered, source_col, metric, metric_weights[metric])
+st.caption(
+    f"Continuous weighted regression check for this split: slope = {context_slope:+.3f}, "
+    f"p-value = {context_p_value:.3f}."
+)

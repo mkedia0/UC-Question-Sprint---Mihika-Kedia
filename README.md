@@ -37,9 +37,17 @@ x = average applicant GPA at a high school
 y = Universitywide UC admit rate from that high school
 ```
 
-If the post-test-blind regression slope is smaller than the pre-test-blind slope, that is evidence that admit rate became less strongly associated with the GPA profile of a school's applicants.
+If the post-test-blind regression slope is smaller than the pre-test-blind slope, that is evidence that admit rate became less strongly associated with the GPA profile of a school's applicants. The significance check uses a weighted regression interaction model with applicant count as the weight:
+
+```text
+admit_rate = applicant_gpa + post_test_blind + applicant_gpa * post_test_blind
+```
+
+The p-value for the interaction term tests whether the GPA-admit-rate slope changed significantly after the policy shift.
 
 The dashboard also compares conditional group means across thirds of schools by applicant GPA, FRPM share, and a-g completion rate. This checks whether the pre/post change looks different across subgroups instead of only reporting one systemwide average.
+
+For the context charts, the grouped lines are visual summaries. The p-values come from continuous weighted regressions that test whether the underlying school context variable predicts the selected change metric.
 
 Preliminary result: the post-test-blind period had a higher overall admit rate, and the relationship between school applicant GPA and admit rate became much weaker. Higher-FRPM schools saw the largest admit-rate increase, but their yield fell, suggesting admission chances improved more than actual enrollment. The GPA gap metrics compare `enrollee_gpa` to `applicant_gpa` and `admit_gpa` to test whether the enrolled class shifted along with admit chances.
 
@@ -52,6 +60,8 @@ python dashboard_analysis.py
 The script writes:
 
 - `analysis_outputs/test_blind_overall_summary.csv`
+- `analysis_outputs/gpa_slope_significance_test.csv`
+- `analysis_outputs/context_slope_significance_tests.csv`
 - `analysis_outputs/applicant_gpa_group_changes.csv`
 - `analysis_outputs/frpm_group_changes.csv`
 - `analysis_outputs/ag_completion_group_changes.csv`

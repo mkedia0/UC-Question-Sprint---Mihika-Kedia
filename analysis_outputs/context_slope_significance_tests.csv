@@ -1,0 +1,10 @@
+predictor,outcome,slope,p_value,alpha,significant_at_0_05
+Pre-period applicant GPA,Admit rate change,-0.16611176117875848,0.0002611479243736014,0.05,True
+Pre-period applicant GPA,Yield change,0.2335571628485082,6.828445945987404e-07,0.05,True
+Pre-period applicant GPA,Enrollee GPA change,2.4305914791120795e-16,0.0016990814858698622,0.05,True
+Pre-period FRPM share,Admit rate change,0.13287773131719666,1.999776617780792e-12,0.05,True
+Pre-period FRPM share,Yield change,-0.11464534949604537,5.567568836842168e-09,0.05,True
+Pre-period FRPM share,Enrollee GPA change,1.4900858345184687e-18,0.9633776605595123,0.05,False
+Pre-period a-g completion rate,Admit rate change,-0.0008723312990732862,0.0008496823701058883,0.05,True
+Pre-period a-g completion rate,Yield change,0.0007597937731559768,0.005334368867783943,0.05,True
+Pre-period a-g completion rate,Enrollee GPA change,2.4677401684299455e-19,0.5719990137149592,0.05,False
