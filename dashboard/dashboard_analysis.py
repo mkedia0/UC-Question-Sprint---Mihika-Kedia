@@ -134,7 +134,6 @@ def compare_groups(school_change, labels):
                 "admit_rate_change": weighted_mean(g, "admit_rate_change", "applicants_post"),
                 "applicant_change": g.applicants_post.sum() - g.applicants_pre.sum(),
                 "yield_rate_change": weighted_mean(g, "yield_rate_change", "admits_post"),
-                "enrollment_rate_change": weighted_mean(g, "enrollment_rate_change", "applicants_post"),
                 "applicant_gpa_change": weighted_mean(g, "applicant_gpa_change", "applicants_post"),
                 "admit_gpa_change": weighted_mean(g, "admit_gpa_change", "admits_post"),
                 "enrollee_gpa_change": weighted_mean(g, "enrollee_gpa_change", "enrollees_post"),
@@ -196,7 +195,6 @@ def main():
         school_change.enrollee_admit_gpa_gap_post - school_change.enrollee_admit_gpa_gap_pre
     )
     school_change["yield_rate_change"] = school_change.yield_rate_post - school_change.yield_rate_pre
-    school_change["enrollment_rate_change"] = school_change.enrollment_rate_post - school_change.enrollment_rate_pre
     school_change["post_minus_pre_score"] = (
         school_change.admit_rate_change * np.sqrt(school_change.applicants_post)
     )

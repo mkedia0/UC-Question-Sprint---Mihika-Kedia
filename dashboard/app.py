@@ -136,7 +136,6 @@ changes = pre.merge(
 )
 changes["admit_rate_change"] = changes.admit_rate_post - changes.admit_rate_pre
 changes["yield_rate_change"] = changes.yield_rate_post - changes.yield_rate_pre
-changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrollment_rate_pre
 changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
 changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
 
