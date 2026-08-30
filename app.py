@@ -9,7 +9,7 @@ PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 
 
-st.set_page_config(page_title="UC Admissions Scouting Report", layout="wide")
+st.set_page_config(page_title="UC Admissions Access Shift", layout="wide")
 
 st.markdown(
     """
@@ -119,8 +119,8 @@ changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrol
 changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
 changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
 
-st.title("UC Admissions Scouting Report")
-st.caption("After UC changed the rules, which Bay Area high schools gained field position?")
+st.title("UC Admissions Access Shift")
+st.caption("How did Bay Area public high school admit patterns change after UC became test-blind?")
 
 left, right = st.columns([1, 3])
 with left:
@@ -148,7 +148,7 @@ with right:
     m5.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
 
     st.markdown(
-        "The post-test-blind period looks like a rule change with real scoreboard movement: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
+        "The post-test-blind period shows a clear access shift: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
     )
 
 chart_data = pd.concat([pre, post], ignore_index=True)
@@ -174,7 +174,7 @@ fig = px.scatter(
 fig.update_yaxes(tickformat=".0%")
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("Scouting card")
+st.subheader("School snapshot")
 card = changes[changes.high_school == selected_school].iloc[0]
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Post-policy lift", f"{card.admit_rate_change:+.1%}")
@@ -216,7 +216,7 @@ st.dataframe(
 )
 
 st.subheader("Context groups")
-group_choice = st.radio("Scouting split", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
+group_choice = st.radio("School context", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
 metric_labels = {
     "Admit rate change": "admit_rate_change",
     "Yield change": "yield_rate_change",
