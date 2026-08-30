@@ -1,0 +1,303 @@
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import statsmodels.api as sm
+import streamlit as st
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = ROOT / "given_materials" / "data" / "bay_area_modeling_table.csv"
+PRE_YEARS = [2017, 2018, 2019]
+POST_YEARS = [2022, 2023, 2024, 2025]
+
+
+st.set_page_config(page_title="Brick by Brick", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            linear-gradient(90deg, rgba(124, 58, 45, 0.05) 1px, transparent 1px),
+            linear-gradient(rgba(124, 58, 45, 0.05) 1px, transparent 1px),
+            linear-gradient(135deg, #fbf7ef 0%, #eef5f1 48%, #f7eadf 100%);
+        background-size: 32px 32px, 32px 32px, auto;
+    }
+    [data-testid="stMetric"] {
+        background: #ffffffcc;
+        border: 1px solid #decfc2;
+        border-left: 6px solid #a9472b;
+        padding: 14px 16px;
+        border-radius: 8px;
+        box-shadow: 0 1px 8px rgba(73, 44, 32, 0.10);
+    }
+    h1, h2, h3 {
+        color: #4b2b24;
+    }
+    .stCaptionContainer {
+        color: #355348;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+@st.cache_data
+def load_data():
+    df = pd.read_csv(DATA_PATH, low_memory=False)
+    df = df[df.campus == "Universitywide"].copy()
+    return df
+
+
+def window_summary(df, label, years):
+    window = df[df.fall_term.isin(years)]
+    schools = (
+        window.groupby(["cds_code", "high_school", "city", "county"], dropna=False)
+        .agg(
+            applicants=("applicants", "sum"),
+            admits=("admits", "sum"),
+            enrollees=("enrollees", "sum"),
+            applicant_gpa=("applicant_gpa", "mean"),
+            admit_gpa=("admit_gpa", "mean"),
+            enrollee_gpa=("enrollee_gpa", "mean"),
+            frpm_pct=("frpm_pct", "mean"),
+            ag_completion_rate=("ag_completion_rate", "mean"),
+        )
+        .reset_index()
+    )
+    schools = schools[(schools.applicants > 0) & schools.applicant_gpa.notna()]
+    schools["admit_rate"] = schools.admits / schools.applicants
+    schools["yield_rate"] = schools.enrollees / schools.admits
+    schools["enrollment_rate"] = schools.enrollees / schools.applicants
+    schools["window"] = label
+    return schools
+
+
+def weighted_slope(x, y, w):
+    mask = x.notna() & y.notna() & w.notna() & (w > 0)
+    x = x[mask]
+    y = y[mask]
+    w = w[mask]
+    x_bar = np.average(x, weights=w)
+    y_bar = np.average(y, weights=w)
+    return np.sum(w * (x - x_bar) * (y - y_bar)) / np.sum(w * (x - x_bar) ** 2)
+
+
+def weighted_mean(df, col, weight):
+    usable = df[df[col].notna() & df[weight].notna() & (df[weight] > 0)]
+    if usable.empty:
+        return np.nan
+    return np.average(usable[col], weights=usable[weight])
+
+
+def slope_change_p_value(pre, post):
+    pre = pre.copy()
+    post = post.copy()
+    pre["post_period"] = 0
+    post["post_period"] = 1
+    combined = pd.concat([pre, post], ignore_index=True)
+    combined = combined.dropna(subset=["applicant_gpa", "admit_rate", "applicants"])
+    combined["gpa_post_interaction"] = combined.applicant_gpa * combined.post_period
+
+    x = sm.add_constant(combined[["applicant_gpa", "post_period", "gpa_post_interaction"]])
+    model = sm.WLS(combined.admit_rate, x, weights=combined.applicants).fit()
+    return model.pvalues["gpa_post_interaction"]
+
+
+def context_slope_p_value(df, predictor, outcome, weight):
+    usable = df.dropna(subset=[predictor, outcome, weight])
+    usable = usable[usable[weight] > 0]
+    x = sm.add_constant(usable[[predictor]])
+    model = sm.WLS(usable[outcome], x, weights=usable[weight]).fit()
+    return model.params[predictor], model.pvalues[predictor]
+
+
+def bucket_labels(values, names, is_percent=False):
+    _, bins = pd.qcut(values.dropna(), 3, retbins=True, duplicates="drop")
+    labels = []
+    for name, low, high in zip(names, bins[:-1], bins[1:]):
+        if is_percent:
+            labels.append(f"{name} ({low:.0%}-{high:.0%})")
+        else:
+            labels.append(f"{name} ({low:.2f}-{high:.2f})")
+    return labels
+
+
+df = load_data()
+pre = window_summary(df, "Pre-test-blind", PRE_YEARS)
+post = window_summary(df, "Post-test-blind", POST_YEARS)
+
+changes = pre.merge(
+    post,
+    on=["cds_code", "high_school", "city", "county"],
+    suffixes=("_pre", "_post"),
+)
+changes["admit_rate_change"] = changes.admit_rate_post - changes.admit_rate_pre
+changes["yield_rate_change"] = changes.yield_rate_post - changes.yield_rate_pre
+changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrollment_rate_pre
+changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
+changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
+
+st.title("Brick by Brick: Rebuilding UC Access")
+st.caption("When UC removed the test-score brick, did GPA become load-bearing, or did access shift?")
+
+left, right = st.columns([1, 3])
+with left:
+    county = st.multiselect("County", sorted(changes.county.dropna().unique()))
+    min_applicants = st.slider("Minimum post-period applicants", 0, 800, 25, step=25)
+    selected_school = st.selectbox("School card", sorted(changes.high_school.unique()))
+
+filtered = changes[changes.applicants_post >= min_applicants].copy()
+if county:
+    filtered = filtered[filtered.county.isin(county)]
+
+pre_rate = pre.admits.sum() / pre.applicants.sum()
+post_rate = post.admits.sum() / post.applicants.sum()
+pre_slope = weighted_slope(pre.applicant_gpa, pre.admit_rate, pre.applicants)
+post_slope = weighted_slope(post.applicant_gpa, post.admit_rate, post.applicants)
+enrollee_gpa_change = weighted_mean(changes, "enrollee_gpa_change", "enrollees_post")
+p_value = slope_change_p_value(pre, post)
+
+with right:
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Old foundation", f"{pre_rate:.1%}")
+    m2.metric("New foundation", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
+    m3.metric("Load-bearing GPA", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
+    m4.metric("Slope p-value", f"{p_value:.3f}")
+    m5.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
+
+    st.markdown(
+        "After UC removed the test-score brick, GPA became less load-bearing: admit rates rose, the GPA advantage got weaker, the slope change is statistically significant at alpha = 0.05, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
+    )
+
+chart_data = pd.concat([pre, post], ignore_index=True)
+if county:
+    chart_data = chart_data[chart_data.county.isin(county)]
+chart_data = chart_data[chart_data.applicants >= min_applicants]
+
+fig = px.scatter(
+    chart_data,
+    x="applicant_gpa",
+    y="admit_rate",
+    color="window",
+    size="applicants",
+    hover_name="high_school",
+    hover_data=["city", "county", "applicants", "admits", "enrollees"],
+    trendline="ols",
+    labels={
+        "applicant_gpa": "Average applicant GPA",
+        "admit_rate": "UC admit rate",
+        "window": "Time period",
+    },
+)
+fig.update_yaxes(tickformat=".0%")
+st.plotly_chart(fig, use_container_width=True)
+
+st.subheader("Brick-level school snapshot")
+card = changes[changes.high_school == selected_school].iloc[0]
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Post-policy lift", f"{card.admit_rate_change:+.1%}")
+c2.metric("Applicant growth", f"{card.applicants_post - card.applicants_pre:+.0f}")
+c3.metric("Yield change", f"{card.yield_rate_change:+.1%}")
+c4.metric("Enrollee GPA change", f"{card.enrollee_gpa_change:+.3f}")
+st.write(
+    f"{card.high_school} in {card.city}, {card.county}: admit rate moved from "
+    f"{card.admit_rate_pre:.1%} before test-blind to {card.admit_rate_post:.1%} after test-blind."
+)
+
+st.subheader("Biggest access openings")
+show = filtered.sort_values("post_minus_pre_score", ascending=False)[
+    [
+        "high_school",
+        "city",
+        "county",
+        "applicants_pre",
+        "applicants_post",
+        "admit_rate_pre",
+        "admit_rate_post",
+        "admit_rate_change",
+        "yield_rate_change",
+        "enrollee_gpa_change",
+    ]
+].head(25)
+
+st.dataframe(
+    show,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "admit_rate_pre": st.column_config.NumberColumn("Pre admit rate", format="%.3f"),
+        "admit_rate_post": st.column_config.NumberColumn("Post admit rate", format="%.3f"),
+        "admit_rate_change": st.column_config.NumberColumn("Admit rate change", format="%.3f"),
+        "yield_rate_change": st.column_config.NumberColumn("Yield change", format="%.3f"),
+        "enrollee_gpa_change": st.column_config.NumberColumn("Enrollee GPA change", format="%.3f"),
+    },
+)
+
+st.subheader("Pressure points by school context")
+group_choice = st.radio("School context", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
+metric_labels = {
+    "Admit rate change": "admit_rate_change",
+    "Yield change": "yield_rate_change",
+    "Enrollee GPA change": "enrollee_gpa_change",
+}
+metric_weights = {
+    "admit_rate_change": "applicants_post",
+    "yield_rate_change": "admits_post",
+    "enrollee_gpa_change": "enrollees_post",
+}
+metric_label = st.selectbox("Compare stat", list(metric_labels))
+metric = metric_labels[metric_label]
+
+if group_choice == "Applicant GPA":
+    source_col = "applicant_gpa_pre"
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower GPA schools", "Middle GPA schools", "Higher GPA schools"],
+    )
+elif group_choice == "FRPM":
+    source_col = "frpm_pct_pre"
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower poverty schools", "Middle poverty schools", "Higher poverty schools"],
+        is_percent=True,
+    )
+else:
+    source_col = "ag_completion_rate_pre"
+    group_labels = bucket_labels(
+        filtered[source_col],
+        ["Lower a-g access", "Middle a-g access", "Higher a-g access"],
+        is_percent=True,
+    )
+
+grouped = filtered.copy()
+grouped["group"] = pd.qcut(grouped[source_col], 3, labels=group_labels)
+group_rows = []
+for label, g in grouped.groupby("group", observed=True):
+    group_rows.append({"group": label, "schools": len(g), metric: weighted_mean(g, metric, "applicants_post")})
+grouped = pd.DataFrame(group_rows)
+
+line = px.line(
+    grouped,
+    x="group",
+    y=metric,
+    markers=True,
+    text=metric,
+    labels={"group": group_choice, metric: metric_label},
+)
+if "gpa" in metric:
+    line.update_traces(texttemplate="%{text:.3f}", textposition="top center")
+else:
+    line.update_traces(texttemplate="%{text:.1%}", textposition="top center")
+    line.update_yaxes(tickformat=".0%")
+line.update_traces(line=dict(width=4), marker=dict(size=11))
+line.update_layout(xaxis_title=None)
+st.plotly_chart(line, use_container_width=True)
+
+context_slope, context_p_value = context_slope_p_value(filtered, source_col, metric, metric_weights[metric])
+st.caption(
+    f"Continuous weighted regression check for this split: slope = {context_slope:+.3f}, "
+    f"p-value = {context_p_value:.3f}."
+)

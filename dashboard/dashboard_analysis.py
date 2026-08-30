@@ -4,8 +4,9 @@ import statsmodels.api as sm
 from pathlib import Path
 
 
-DATA = "data/bay_area_modeling_table.csv"
-OUTPUTS = Path("analysis_outputs")
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "given_materials" / "data" / "bay_area_modeling_table.csv"
+OUTPUTS = Path(__file__).resolve().parent / "analysis_outputs"
 PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 

@@ -1,14 +1,15 @@
 # Brick by Brick: Rebuilding UC Access
 
-This repo contains the Question Sprint notebook and a Streamlit dashboard for the UC Admissions Data Challenge. The dashboard theme is "Brick by Brick": when UC removed the test-score brick, did GPA become load-bearing, or did access shift across Bay Area public high schools?
+This repository contains my UC Admissions Data Challenge submission. The main project is a Streamlit dashboard that studies how UC's test-blind admissions shift was associated with Bay Area public high school admission patterns.
 
-Run `question_sprint_answers.ipynb` from the repo root. Each code cell computes one form answer from the provided CSV files in `data/`.
+**Theme:** when UC removed the test-score brick, did GPA become load-bearing, or did access shift?
 
-Run the dashboard with:
+## Repository Structure
 
-```bash
-streamlit run app.py
-```
+- `app.py`: small Streamlit launcher for deployment from the repo root.
+- `dashboard/`: dashboard app, analysis script, and generated results.
+- `question_sprint/`: notebook for the Question Sprint answers.
+- `given_materials/data/`: challenge-provided CSV files and data README.
 
 ## Dashboard Question
 
@@ -18,51 +19,48 @@ How did UC's test-blind admissions shift affect applicants' chances of admission
 
 - Population of interest: Bay Area California public high schools represented in the provided UC admissions data.
 - Observational units: one high school summarized across a time window.
-- Explanatory variables: school applicant GPA, free/reduced-price meal share (`frpm_pct`), and a-g completion rate.
-- Response variables: Universitywide UC admit rate (`admits / applicants`), applicant volume, yield rate (`enrollees / admits`), enrollment rate (`enrollees / applicants`), and the GPA profile of applicants, admits, and enrollees.
+- Main response variable: Universitywide UC admit rate, calculated as `admits / applicants`.
+- Main explanatory variables: school applicant GPA, post-test-blind period, and their interaction.
+- Context variables: free/reduced-price meal share (`frpm_pct`) and a-g completion rate.
 - Comparison groups: pre-test-blind years `2017-2019` vs post-test-blind years `2022-2025`.
-- Null hypothesis: test-blind admissions did not meaningfully change UC admission chances across Bay Area public high schools.
-- Alternative hypothesis: test-blind admissions changed UC admission chances, with different effects by school context.
+- Null hypothesis: the GPA/admit-rate relationship did not meaningfully change after UC became test-blind.
+- Alternative hypothesis: the GPA/admit-rate relationship changed after UC became test-blind.
 
-The analysis uses `campus == "Universitywide"` because that row counts students admitted to at least one UC, not duplicated campus applications. Rates are computed by summing counts first, then dividing. All dashboard metrics come from the provided challenge CSV files in `data/`; no outside data is used in the analysis.
+This is an observational study, not a randomized experiment. The dashboard describes association rather than proving that test-blind admissions was the only cause of the observed changes.
 
 ## Methodology
 
-This is an observational study, not a randomized experiment. The explanatory condition is whether the admissions cycle happened before or after UC became test-blind. Because other changes happened over time too, the dashboard describes association rather than proving causation.
+The analysis uses `campus == "Universitywide"` because that row counts each student once if they were admitted to at least one UC. Rates are computed by summing counts first, then dividing. All metrics come from the provided challenge CSV files; no outside data is used.
 
-The main test is a comparison of two least-squares regression relationships:
-
-```text
-x = average applicant GPA at a high school
-y = Universitywide UC admit rate from that high school
-```
-
-If the post-test-blind regression slope is smaller than the pre-test-blind slope, that is evidence that admit rate became less strongly associated with the GPA profile of a school's applicants. The significance check uses a weighted regression interaction model with applicant count as the weight:
+The main significance check uses a weighted regression interaction model with applicant count as the weight:
 
 ```text
 admit_rate = applicant_gpa + post_test_blind + applicant_gpa * post_test_blind
 ```
 
-The p-value for the interaction term tests whether the GPA-admit-rate slope changed significantly after the policy shift.
+The interaction term tests whether the GPA/admit-rate slope changed significantly after the policy shift.
 
-The dashboard also compares conditional group means across thirds of schools by applicant GPA, FRPM share, and a-g completion rate. This checks whether the pre/post change looks different across subgroups instead of only reporting one systemwide average.
+The dashboard also compares weighted subgroup means across thirds of schools by applicant GPA, FRPM share, and a-g completion rate. The grouped lines are visual summaries; the p-values underneath come from continuous weighted regressions using the original school context variables.
 
-For the context charts, the grouped lines are visual summaries. The p-values come from continuous weighted regressions that test whether the underlying school context variable predicts the selected change metric.
+## Key Finding
 
-Preliminary result: the post-test-blind period had a higher overall admit rate, and the relationship between school applicant GPA and admit rate became much weaker. Higher-FRPM schools saw the largest admit-rate increase, but their yield fell, suggesting admission chances improved more than actual enrollment. The GPA gap metrics compare `enrollee_gpa` to `applicant_gpa` and `admit_gpa` to test whether the enrolled class shifted along with admit chances.
+The post-test-blind period had a higher overall admit rate, and the relationship between school applicant GPA and admit rate became much weaker. The GPA/admit-rate slope dropped from `0.214` to `0.050`, with an interaction p-value of `0.027`, so the slope change is statistically significant at `alpha = 0.05`.
 
-Run:
+Higher-FRPM schools saw the largest admit-rate increase, but their yield fell, suggesting admission access improved more than enrollment conversion.
+
+## Run Locally
+
+Install requirements, then run the dashboard from the repo root:
 
 ```bash
-python dashboard_analysis.py
+pip install -r requirements.txt
+streamlit run app.py
 ```
 
-The script writes:
+Run the analysis script:
 
-- `analysis_outputs/test_blind_overall_summary.csv`
-- `analysis_outputs/gpa_slope_significance_test.csv`
-- `analysis_outputs/context_slope_significance_tests.csv`
-- `analysis_outputs/applicant_gpa_group_changes.csv`
-- `analysis_outputs/frpm_group_changes.csv`
-- `analysis_outputs/ag_completion_group_changes.csv`
-- `analysis_outputs/school_level_pre_post_changes.csv`
+```bash
+python dashboard/dashboard_analysis.py
+```
+
+The script writes generated results to `dashboard/analysis_outputs/`.
