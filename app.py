@@ -8,7 +8,29 @@ PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 
 
-st.set_page_config(page_title="UC Test-Blind Admissions Impact", layout="wide")
+st.set_page_config(page_title="UC Admissions Scouting Report", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(135deg, #f8faf6 0%, #eef4e8 45%, #f7f3df 100%);
+    }
+    [data-testid="stMetric"] {
+        background: #ffffffcc;
+        border: 1px solid #d7decf;
+        border-left: 6px solid #1f6f50;
+        padding: 14px 16px;
+        border-radius: 8px;
+        box-shadow: 0 1px 6px rgba(20, 35, 25, 0.08);
+    }
+    h1, h2, h3 {
+        color: #163b2c;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_data
@@ -74,13 +96,14 @@ changes["enrollment_rate_change"] = changes.enrollment_rate_post - changes.enrol
 changes["enrollee_gpa_change"] = changes.enrollee_gpa_post - changes.enrollee_gpa_pre
 changes["post_minus_pre_score"] = changes.admit_rate_change * np.sqrt(changes.applicants_post)
 
-st.title("Did test-blind admissions change UC chances?")
-st.caption("Bay Area public high schools, Universitywide UC outcomes")
+st.title("UC Admissions Scouting Report")
+st.caption("After UC changed the rules, which Bay Area high schools gained field position?")
 
 left, right = st.columns([1, 3])
 with left:
     county = st.multiselect("County", sorted(changes.county.dropna().unique()))
     min_applicants = st.slider("Minimum post-period applicants", 0, 800, 25, step=25)
+    selected_school = st.selectbox("School card", sorted(changes.high_school.unique()))
 
 filtered = changes[changes.applicants_post >= min_applicants].copy()
 if county:
@@ -94,13 +117,13 @@ enrollee_gpa_change = weighted_mean(changes, "enrollee_gpa_change", "enrollees_p
 
 with right:
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Pre admit rate", f"{pre_rate:.1%}")
-    m2.metric("Post admit rate", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
-    m3.metric("GPA slope", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
+    m1.metric("Before rule change", f"{pre_rate:.1%}")
+    m2.metric("After rule change", f"{post_rate:.1%}", f"{post_rate - pre_rate:+.1%}")
+    m3.metric("GPA advantage index", f"{post_slope:.3f}", f"{post_slope - pre_slope:+.3f}")
     m4.metric("Enrollee GPA shift", f"{enrollee_gpa_change:+.3f}")
 
     st.markdown(
-        "The post-test-blind period had higher admit rates, while the relationship between a school's applicant GPA and admit rate became weaker. Enrollee GPA barely moved, suggesting admission chances changed more than the academic profile of students who enrolled."
+        "The post-test-blind period looks like a rule change with real scoreboard movement: admit rates rose, the GPA advantage got weaker, and enrolled-student GPA barely moved. In plain English, chances changed more than the academic profile of students who enrolled."
     )
 
 chart_data = pd.concat([pre, post], ignore_index=True)
@@ -126,7 +149,19 @@ fig = px.scatter(
 fig.update_yaxes(tickformat=".0%")
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("Which schools changed most?")
+st.subheader("Scouting card")
+card = changes[changes.high_school == selected_school].iloc[0]
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Post-policy lift", f"{card.admit_rate_change:+.1%}")
+c2.metric("Applicant growth", f"{card.applicants_post - card.applicants_pre:+.0f}")
+c3.metric("Yield change", f"{card.yield_rate_change:+.1%}")
+c4.metric("Enrollee GPA change", f"{card.enrollee_gpa_change:+.3f}")
+st.write(
+    f"{card.high_school} in {card.city}, {card.county}: admit rate moved from "
+    f"{card.admit_rate_pre:.1%} before test-blind to {card.admit_rate_post:.1%} after test-blind."
+)
+
+st.subheader("Biggest risers")
 show = filtered.sort_values("post_minus_pre_score", ascending=False)[
     [
         "high_school",
@@ -156,8 +191,8 @@ st.dataframe(
 )
 
 st.subheader("Context groups")
-group_choice = st.radio("Group schools by", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
-metric = st.selectbox("Compare metric", ["admit_rate_change", "yield_rate_change", "enrollment_rate_change", "enrollee_gpa_change"])
+group_choice = st.radio("Scouting split", ["Applicant GPA", "FRPM", "a-g completion"], horizontal=True)
+metric = st.selectbox("Compare stat", ["admit_rate_change", "yield_rate_change", "enrollment_rate_change", "enrollee_gpa_change"])
 
 if group_choice == "Applicant GPA":
     source_col = "applicant_gpa_pre"
