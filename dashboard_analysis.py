@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 
 DATA = "data/bay_area_modeling_table.csv"
+OUTPUTS = Path("analysis_outputs")
 PRE_YEARS = [2017, 2018, 2019]
 POST_YEARS = [2022, 2023, 2024, 2025]
 
@@ -90,6 +92,7 @@ def compare_groups(school_change, labels):
 
 
 def main():
+    OUTPUTS.mkdir(exist_ok=True)
     df = pd.read_csv(DATA, low_memory=False)
     df = df[df.campus == "Universitywide"].copy()
 
@@ -194,12 +197,12 @@ def main():
         },
     )
 
-    summary.to_csv("dashboard_summary.csv", index=False)
-    gpa_summary.to_csv("dashboard_gpa_group_summary.csv", index=False)
-    frpm_summary.to_csv("dashboard_frpm_group_summary.csv", index=False)
-    ag_summary.to_csv("dashboard_ag_group_summary.csv", index=False)
+    summary.to_csv(OUTPUTS / "test_blind_overall_summary.csv", index=False)
+    gpa_summary.to_csv(OUTPUTS / "applicant_gpa_group_changes.csv", index=False)
+    frpm_summary.to_csv(OUTPUTS / "frpm_group_changes.csv", index=False)
+    ag_summary.to_csv(OUTPUTS / "ag_completion_group_changes.csv", index=False)
     school_change.sort_values("post_minus_pre_score", ascending=False).to_csv(
-        "dashboard_school_changes.csv", index=False
+        OUTPUTS / "school_level_pre_post_changes.csv", index=False
     )
 
     print("Main hypothesis:")

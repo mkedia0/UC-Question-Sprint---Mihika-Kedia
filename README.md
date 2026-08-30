@@ -51,8 +51,8 @@ python dashboard_analysis.py
 
 The script writes:
 
-- `dashboard_summary.csv`
-- `dashboard_gpa_group_summary.csv`
-- `dashboard_frpm_group_summary.csv`
-- `dashboard_ag_group_summary.csv`
-- `dashboard_school_changes.csv`
+- `analysis_outputs/test_blind_overall_summary.csv`
+- `analysis_outputs/applicant_gpa_group_changes.csv`
+- `analysis_outputs/frpm_group_changes.csv`
+- `analysis_outputs/ag_completion_group_changes.csv`
+- `analysis_outputs/school_level_pre_post_changes.csv`
