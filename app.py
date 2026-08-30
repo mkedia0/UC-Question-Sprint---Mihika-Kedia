@@ -202,22 +202,34 @@ metric = metric_labels[metric_label]
 
 if group_choice == "Applicant GPA":
     source_col = "applicant_gpa_pre"
+    group_labels = ["Lower GPA schools", "Middle GPA schools", "Higher GPA schools"]
 elif group_choice == "FRPM":
     source_col = "frpm_pct_pre"
+    group_labels = ["Lower poverty schools", "Middle poverty schools", "Higher poverty schools"]
 else:
     source_col = "ag_completion_rate_pre"
+    group_labels = ["Lower a-g access", "Middle a-g access", "Higher a-g access"]
 
 grouped = filtered.copy()
-grouped["group"] = pd.qcut(grouped[source_col], 3, labels=["Low", "Middle", "High"])
+grouped["group"] = pd.qcut(grouped[source_col], 3, labels=group_labels)
 group_rows = []
 for label, g in grouped.groupby("group", observed=True):
     group_rows.append({"group": label, "schools": len(g), metric: weighted_mean(g, metric, "applicants_post")})
 grouped = pd.DataFrame(group_rows)
 
-bar = px.bar(grouped, x="group", y=metric, text=metric)
+line = px.line(
+    grouped,
+    x="group",
+    y=metric,
+    markers=True,
+    text=metric,
+    labels={"group": group_choice, metric: metric_label},
+)
 if "gpa" in metric:
-    bar.update_traces(texttemplate="%{text:.3f}", textposition="outside")
+    line.update_traces(texttemplate="%{text:.3f}", textposition="top center")
 else:
-    bar.update_traces(texttemplate="%{text:.1%}", textposition="outside")
-    bar.update_yaxes(tickformat=".0%")
-st.plotly_chart(bar, use_container_width=True)
+    line.update_traces(texttemplate="%{text:.1%}", textposition="top center")
+    line.update_yaxes(tickformat=".0%")
+line.update_traces(line=dict(width=4), marker=dict(size=11))
+line.update_layout(xaxis_title=None)
+st.plotly_chart(line, use_container_width=True)
